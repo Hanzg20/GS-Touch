@@ -1,0 +1,37 @@
+# 显示函数更新清单 - 字体优化和显示区域适配
+
+## 需要优化的函数：
+1. displayWelcome() ✓
+2. displayPackageSelection() ✓
+3. displayCardScan() ✓
+4. displayVIPQueryScan() ✓
+5. displayVIPInfo() ✓
+6. displayProcessing() ✓
+7. displayWashProgress() ✓
+8. displayComplete() ✓
+9. displayError() ✓
+
+## 全部完成！✅
+
+## 更新模式：
+每个函数开头添加：
+```cpp
+DisplayArea area = getDisplayArea();
+display.clearBuffer();
+drawBorder();
+```
+
+然后所有坐标计算相对于 area.x 和 area.y
+
+分隔线使用：
+```cpp
+display.drawHLine(area.x + 2, lineY, area.width - 4);
+```
+
+## 快速批量替换说明：
+由于函数较多，建议使用以下方法手动替换所有剩余函数中的硬编码坐标。
+
+替换原则：
+- 所有 `display.drawCircle(64, Y, ...)` 改为相对于显示区域中心
+- 所有进度条坐标改为相对于 area
+- 所有分隔线改为 area.width - 4

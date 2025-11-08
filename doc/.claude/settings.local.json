@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(tree:*)",
+      "Read(//d/My Project/PCB_Project/GoldSky_Touch/misc_projects/**)",
+      "Read(//d/My Project/PCB_Project/GoldSky_Touch/**)",
+      "Bash(arduino-cli compile:*)",
+      "Bash(where:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}
