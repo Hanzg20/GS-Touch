@@ -840,7 +840,7 @@ void handleCompleteState() {
   setSystemLEDStatus();
 
   // 重置标志（每次重新进入STATE_COMPLETE时）
-  static SystemState lastState = STATE_IDLE;  // 初始化为非COMPLETE状态
+  static SystemState lastState = STATE_WELCOME;  // 初始化为非COMPLETE状态
   static bool displayRefreshed = false;
   static bool soundPlayed = false;
 
