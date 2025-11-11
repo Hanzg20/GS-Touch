@@ -549,12 +549,8 @@ bool recordTransaction(const String& decimalUID, float amount, float balanceBefo
 void handleWelcomeState() {
   setSystemLEDStatus();
 
-  // 只在首次进入时刷新显示
-  static bool displayRefreshed = false;
-  if (!displayRefreshed) {
-    displayWelcome();
-    displayRefreshed = true;
-  }
+  // 持续刷新显示以支持滚动动画
+  displayWelcome();
 
   // ✅ 优化：欢迎界面刷新时间戳，避免待机时自动重启
   static unsigned long lastWelcomeUpdate = 0;
@@ -564,7 +560,6 @@ void handleWelcomeState() {
   }
 
   if (readButtonImproved(BTN_OK)) {
-    displayRefreshed = false;  // 重置标志
     currentState = STATE_SELECT_PACKAGE;
     selectedPackage = 0;
     stateStartTime = millis();
@@ -828,11 +823,19 @@ void handleProcessingState() {
     logInfo("🚿 脉冲 " + String(sentPulses) + "/" + String(pkg.pulses));
   }
 
-  if (elapsed >= totalTimeMs || sentPulses >= pkg.pulses) {
+  // 检查是否完成：脉冲数达到目标
+  if (sentPulses >= pkg.pulses) {
     currentState = STATE_COMPLETE;
     stateStartTime = millis();
     digitalWrite(PULSE_OUT, LOW);
-    logInfo("✅ 洗车完成!");
+    logInfo("✅ 洗车完成! (脉冲: " + String(sentPulses) + "/" + String(pkg.pulses) + ")");
+  }
+  // 或者时间超时（安全机制）
+  else if (elapsed >= totalTimeMs) {
+    currentState = STATE_COMPLETE;
+    stateStartTime = millis();
+    digitalWrite(PULSE_OUT, LOW);
+    logInfo("⚠️ 洗车超时完成! (时间到，脉冲: " + String(sentPulses) + "/" + String(pkg.pulses) + ")");
   }
 }
 
@@ -844,17 +847,20 @@ void handleCompleteState() {
   static bool displayRefreshed = false;
   static bool soundPlayed = false;
 
-  if (currentState != lastState) {
+  // ✅ 修复：检测从其他状态切换到COMPLETE（确保每次都能重置）
+  if (lastState != STATE_COMPLETE) {
     // 刚进入STATE_COMPLETE，重置所有标志
     displayRefreshed = false;
     soundPlayed = false;
     lastState = STATE_COMPLETE;
+    logInfo("✅ 进入完成页面");
   }
 
   // 只在首次进入时刷新显示
   if (!displayRefreshed) {
     displayComplete();
     displayRefreshed = true;
+    logInfo("✅ 显示完成页面");
   }
 
   // 只在首次进入时播放声音
@@ -867,6 +873,9 @@ void handleCompleteState() {
 
   // 超时后返回欢迎页
   if (millis() - stateStartTime > STATE_TIMEOUT_COMPLETE_MS) {
+    // ✅ 修复：退出时重置lastState，确保下次能正确进入
+    lastState = STATE_WELCOME;
+    logInfo("⏱️ 完成页面超时，返回欢迎页");
     resetToWelcome();
   }
 }
@@ -894,7 +903,10 @@ void resetToWelcome() {
 }
 
 void checkStateTimeout() {
-  if (currentState == STATE_WELCOME || currentState == STATE_PROCESSING) {
+  // ✅ 修复：STATE_COMPLETE 由自己的handler处理超时，不在这里检查
+  if (currentState == STATE_WELCOME ||
+      currentState == STATE_PROCESSING ||
+      currentState == STATE_COMPLETE) {
     return;
   }
 
@@ -907,7 +919,7 @@ void checkStateTimeout() {
     case STATE_VIP_QUERY: timeout = STATE_TIMEOUT_VIP_QUERY_MS; break;
     case STATE_VIP_DISPLAY: timeout = STATE_TIMEOUT_VIP_DISPLAY_MS; break;
     case STATE_SYSTEM_READY: timeout = STATE_TIMEOUT_READY_MS + 1000; break;
-    case STATE_COMPLETE: timeout = STATE_TIMEOUT_COMPLETE_MS; break;
+    // ✅ 移除 STATE_COMPLETE 的超时检查
     default: return;
   }
 

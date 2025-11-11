@@ -18,7 +18,7 @@
 // OLED显示屏：2.42" SSD1309 128x64 I2C
 // 硬件上电复位电路：VCC --[10kΩ]-- RST --[2.2μF]-- GND
 #define OLED_WIDTH 128
-#define OLED_HEIGHT 64
+#define OLED_HEIGHT 62
 #define I2C_SDA 42  // 修改：原来是8
 #define I2C_SCL 41  // 修改：原来是9
 
@@ -26,9 +26,9 @@
 // 物理可视窗口: 55mm × 23mm
 // 对应像素区域: 127 × 53 像素 (垂直居中，上下各留5-6像素)
 #define DISPLAY_VISIBLE_WIDTH 127    // 可视宽度（像素）
-#define DISPLAY_VISIBLE_HEIGHT 51    // 可视高度（像素）
+#define DISPLAY_VISIBLE_HEIGHT 45    // 51 可视高度（像素）
 #define DISPLAY_OFFSET_X 0           // 水平偏移（居中）
-#define DISPLAY_OFFSET_Y 6           // 垂直偏移（居中）
+#define DISPLAY_OFFSET_Y 9           // 垂直偏移（向下移动1个单位：6→7）
 
 // 边框样式 (0=无边框, 1=单线, 2=双线)
 #define BORDER_STYLE 0               // 无边框（节省空间）
@@ -76,13 +76,15 @@ VT	RST	GPIO 14	RC522_RST
 #define PULSE_OUT 3
 
 // =================== WiFi和网络配置 ===================
-#define WIFI_SSID "hanzg_hanyh"
-#define WIFI_PASSWORD "han1314521"
+// 注意：请在实际部署时修改为您的WiFi凭证
+#define WIFI_SSID "YourWiFiSSID"
+#define WIFI_PASSWORD "YourWiFiPassword"
 #define WIFI_TIMEOUT_MS 20000
 
 // =================== Supabase 配置 ===================
-#define SUPABASE_URL "https://ttbtxxpnvkcbyugzdqfw.supabase.co"
-#define SUPABASE_KEY "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR0YnR4eHBudmtjYnl1Z3pkcWZ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTIzNjM2MjcsImV4cCI6MjA2NzkzOTYyN30.25wuNx2b6BdpZfyghw2vpHeVfBJFShkjhYtkCytQPgg"
+// 注意：请在实际部署时修改为您的Supabase配置
+#define SUPABASE_URL "https://your-project.supabase.co"
+#define SUPABASE_KEY "your-anon-key-here"
 
 // =================== 系统配置 ===================
 #define MACHINE_ID "VIP_TERMINAL_01"
@@ -98,8 +100,8 @@ VT	RST	GPIO 14	RC522_RST
 #define STATE_TIMEOUT_SELECT_MS 20000
 #define STATE_TIMEOUT_CARD_SCAN_MS 15000
 #define STATE_TIMEOUT_READY_MS 2000
-#define STATE_TIMEOUT_PROCESSING_MS 120000
-#define STATE_TIMEOUT_COMPLETE_MS 8000
+#define STATE_TIMEOUT_PROCESSING_MS 1200000  // 20分钟（最长套餐15分钟+缓冲）
+#define STATE_TIMEOUT_COMPLETE_MS 5000       // 5秒（缩短完成页显示时间）
 #define STATE_TIMEOUT_VIP_QUERY_MS 15000
 #define STATE_TIMEOUT_VIP_DISPLAY_MS 15000
 

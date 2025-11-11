@@ -5,6 +5,9 @@
  * 包含所有OLED屏幕显示函数（居中+横向布局）
  */
 
+// 外部变量声明（来自 GoldSky_Utils.ino）
+extern int nfcReadFailCount;  // NFC连续读卡失败次数
+
 // =================== 辅助函数 ===================
 // 计算实际显示区域（考虑遮挡罩子）
 // DisplayArea 结构体定义在 config.h 中
@@ -67,7 +70,7 @@ void displayWelcome() {
   static int scrollPos = 0;
 
   // VIP推广滚动广告 (吸引人的文案)
-  const char* vipAd = "  Recharge NOW! Get BONUS Cash + FREE Tire Change! $50=$60 | $100=$125 | $200=$240  ";
+  const char* vipAd = "More Cash, More Savings! VIP Top-Up Bonus: $50=$60 | $100=$125 | $200=$240 PLUS Free Tires Change! ";
   display.setFont(u8g2_font_helvB08_tf);  // Bold 8pt
   int adWidth = display.getStrWidth(vipAd);
 
@@ -94,10 +97,10 @@ void displayWelcome() {
     display.drawStr(textX + adWidth, scrollY, vipAd);
   }
 
-  // 套餐快速参考 (底部，简化)
+  // 欢迎文字 (底部)
   display.setFont(u8g2_font_6x10_tf);
-  const char* pkg = "A:$60  B:$125  C:$240";
-  display.drawStr(getCenterX(pkg), scrollY + 12, pkg);
+  const char* welcome = "Welcome    ";
+  display.drawStr(getCenterX(welcome), scrollY + 12, welcome);
 
   // 右下角提示
   const char* prompt = "Press OK";
@@ -165,7 +168,7 @@ void displayPackageSelection() {
       sprintf(line2, "Info");
     } else {
       sprintf(line1, "$%.0f", packages[i].price);
-      sprintf(line2, "%dm", packages[i].minutes);
+      sprintf(line2, "%dmin", packages[i].minutes);  // 改为 "数值+min"
     }
 
     // 居中显示文字
@@ -202,25 +205,27 @@ void displayCardScan() {
   DisplayArea area = getDisplayArea();
   display.clearBuffer();
 
-  // 标题
-  display.setFont(u8g2_font_helvB10_tf);
-  const char* title = "TAP CARD";
-  int titleY = area.y + 11;
-  display.drawStr(getCenterX(title), titleY, title);
+  // 套餐信息（顶部居中）
+  const Package& pkg = packages[selectedPackage];
+  char buffer[32];
+  sprintf(buffer, "$%.0f-%dmin", pkg.price, pkg.minutes);
+  display.setFont(u8g2_font_helvB08_tf);
+  int titleY = area.y + 9;
+  display.drawStr(getCenterX(buffer), titleY, buffer);
 
-  // NFC感应图标动画
+  // NFC感应图标动画（屏幕中心）
   int centerX = area.x + area.width / 2;
   int centerY = area.y + area.height / 2;
 
-  // 1. 绘制NFC标签椭圆 (左侧)
+  // 1. 绘制NFC标签椭圆 (横向，左侧)
   int tagCenterX = centerX - 20;
   int tagCenterY = centerY;
-  display.drawEllipse(tagCenterX, tagCenterY, 12, 18, U8G2_DRAW_ALL);
+  display.drawEllipse(tagCenterX, tagCenterY, 18, 12, U8G2_DRAW_ALL);  // 横向：rx=18, ry=12
 
-  // 2. 绘制椭圆内的三条波纹线
-  display.drawLine(tagCenterX - 6, tagCenterY - 6, tagCenterX - 6, tagCenterY + 6);
-  display.drawLine(tagCenterX - 2, tagCenterY - 8, tagCenterX - 2, tagCenterY + 8);
-  display.drawLine(tagCenterX + 2, tagCenterY - 6, tagCenterX + 2, tagCenterY + 6);
+  // 2. 绘制椭圆内的三条波纹线 (横向)
+  display.drawLine(tagCenterX - 6, tagCenterY - 6, tagCenterX + 6, tagCenterY - 6);
+  display.drawLine(tagCenterX - 8, tagCenterY - 2, tagCenterX + 8, tagCenterY - 2);
+  display.drawLine(tagCenterX - 6, tagCenterY + 2, tagCenterX + 6, tagCenterY + 2);
 
   // 3. 绘制无线信号波纹 (从NFC标签向右扩散)
   for(int i = 0; i < 3; i++) {
@@ -244,12 +249,25 @@ void displayCardScan() {
   display.drawLine(handX + 5, handY - 8, handX + 5, handY - 13);
   display.drawLine(handX + 8, handY - 8, handX + 8, handY - 12);
 
-  // 套餐信息（底部）
-  const Package& pkg = packages[selectedPackage];
-  char buffer[32];
-  sprintf(buffer, "$%.0f - %dmin", pkg.price, pkg.minutes);
+  // 提示文字（右下角，向中间偏移避免遮挡）
   display.setFont(u8g2_font_helvB08_tf);
-  display.drawStr(getCenterX(buffer), area.y + area.height - 4, buffer);
+
+  // ✅ 优化：根据NFC失败次数显示不同提示
+  const char* prompt;
+  if (nfcReadFailCount >= 10) {
+    // 连续失败10次以上，提示用户调整卡片
+    prompt = "Adjust Card";
+    // 闪烁提示（每500ms切换）
+    if ((millis() / 500) % 2 == 0) {
+      display.setFont(u8g2_font_helvB10_tf);  // 加粗字体
+    }
+  } else {
+    prompt = "TAP CARD";
+  }
+
+  int promptX = area.x + area.width - 60;  // 向左移动10像素（50→60）
+  int promptY = area.y + area.height - 3;  // 底部Y坐标
+  display.drawStr(promptX, promptY, prompt);
 
   display.sendBuffer();
 }
@@ -397,82 +415,86 @@ void displayWashProgress(int current, int total, int remainingMin, int remaining
   DisplayArea area = getDisplayArea();
   display.clearBuffer();
 
-  // 标题居中 - 使用较大字体
-  display.setFont(u8g2_font_helvB10_tf);  // Bold 10pt
+  // 标题居中
+  display.setFont(u8g2_font_helvB10_tf);
   int titleY = area.y + 9;
   display.drawStr(getCenterX(TEXT_PROCESSING[currentLanguage]), titleY, TEXT_PROCESSING[currentLanguage]);
 
-  // 倒计时大字号居中显示
-  display.setFont(u8g2_font_logisoso16_tn);  // 16pt数字
-  char timeBuffer[10];
-  sprintf(timeBuffer, "%02d:%02d", remainingMin, remainingSec);
-  display.drawStr(getCenterX(timeBuffer), titleY + 22, timeBuffer);
-
-  // 齿轮动画区域 (底部)
-  int animY = area.y + area.height - 18;  // 动画区域起始Y坐标
+  // 齿轮动画区域 (屏幕中心，放大)
+  int centerX = area.x + area.width / 2;
+  int centerY = area.y + area.height / 2 + 5;
 
   // 齿轮旋转动画
   static unsigned long lastGearUpdate = 0;
   static int gearAngle = 0;
-  if (millis() - lastGearUpdate > 200) {  // 每200ms旋转
-    gearAngle = (gearAngle + 45) % 360;  // 每次旋转45度
+  if (millis() - lastGearUpdate > 150) {  // 更快的旋转
+    gearAngle = (gearAngle + 45) % 360;
     lastGearUpdate = millis();
   }
 
-  // 绘制齿轮 (右侧)
-  int gearX = area.x + area.width - 15;
-  int gearY = animY + 9;
-  int gearRadius = 8;
+  // 绘制大齿轮 (右侧，放大2倍)
+  int gearX = centerX + 35;
+  int gearY = centerY;
+  int gearRadius = 16;  // 放大到16像素
 
-  // 齿轮外圈
+  // 齿轮外圈 (双圈加粗)
   display.drawCircle(gearX, gearY, gearRadius);
-  display.drawCircle(gearX, gearY, gearRadius - 2);
+  display.drawCircle(gearX, gearY, gearRadius - 1);
+  display.drawCircle(gearX, gearY, gearRadius - 4);
 
-  // 齿轮齿 (8个齿，根据旋转角度)
+  // 齿轮齿 (8个齿，加粗)
   for (int i = 0; i < 8; i++) {
     int angle = (i * 45 + gearAngle) % 360;
     float rad = angle * 3.14159 / 180.0;
-    int x1 = gearX + (gearRadius - 1) * cos(rad);
-    int y1 = gearY + (gearRadius - 1) * sin(rad);
-    int x2 = gearX + (gearRadius + 2) * cos(rad);
-    int y2 = gearY + (gearRadius + 2) * sin(rad);
+    int x1 = gearX + (gearRadius - 2) * cos(rad);
+    int y1 = gearY + (gearRadius - 2) * sin(rad);
+    int x2 = gearX + (gearRadius + 4) * cos(rad);
+    int y2 = gearY + (gearRadius + 4) * sin(rad);
+
+    // 加粗齿（绘制两条线）
     display.drawLine(x1, y1, x2, y2);
+    display.drawLine(x1 + 1, y1, x2 + 1, y2);
   }
 
-  // 脉冲信号动画 (从左到右的数字流)
+  // 齿轮中心点
+  display.drawDisc(gearX, gearY, 3);
+
+  // 脉冲信号动画 (从左到右，更大的数字)
   static unsigned long lastPulse = 0;
   static int pulsePos = 0;
-  if (millis() - lastPulse > 150) {  // 每150ms移动
-    pulsePos = (pulsePos + 8) % 80;  // 循环移动
+  if (millis() - lastPulse > 120) {  // 更快的流动
+    pulsePos = (pulsePos + 10) % 100;
     lastPulse = millis();
   }
 
-  // 绘制数字信号 "1" "0" "1" "0" 流动效果
-  display.setFont(u8g2_font_6x10_tf);
+  // 绘制大号数字信号流
+  display.setFont(u8g2_font_helvB08_tf);  // 大字体
   for (int i = 0; i < 4; i++) {
-    int digitX = area.x + 10 + pulsePos + (i * 20);
-    if (digitX < gearX - 15) {  // 只在到达齿轮前显示
+    int digitX = area.x + 5 + pulsePos + (i * 25);
+    if (digitX < gearX - 25) {
       const char* digit = (i % 2 == 0) ? "1" : "0";
-      display.drawStr(digitX, animY + 10, digit);
+      display.drawStr(digitX, centerY + 3, digit);
 
-      // 信号连接线
-      if (digitX > area.x + 10) {
-        display.drawLine(digitX - 5, animY + 9, digitX, animY + 9);
+      // 信号连接线（加粗）
+      if (digitX > area.x + 5) {
+        display.drawLine(digitX - 8, centerY, digitX - 2, centerY);
+        display.drawLine(digitX - 8, centerY + 1, digitX - 2, centerY + 1);
       }
     }
   }
 
-  // 箭头指向齿轮
-  int arrowX = gearX - 20;
-  display.drawLine(arrowX, animY + 9, arrowX + 8, animY + 9);
-  display.drawLine(arrowX + 8, animY + 9, arrowX + 5, animY + 6);
-  display.drawLine(arrowX + 8, animY + 9, arrowX + 5, animY + 12);
+  // 箭头指向齿轮（加粗）
+  int arrowX = gearX - 30;
+  display.drawLine(arrowX, centerY, arrowX + 15, centerY);
+  display.drawLine(arrowX, centerY + 1, arrowX + 15, centerY + 1);
+  display.drawLine(arrowX + 15, centerY, arrowX + 10, centerY - 3);
+  display.drawLine(arrowX + 15, centerY, arrowX + 10, centerY + 3);
 
-  // 脉冲计数 (左下角，小字)
-  display.setFont(u8g2_font_6x10_tf);
+  // 脉冲计数 (底部居中，从1开始)
+  display.setFont(u8g2_font_helvB08_tf);
   char buffer[16];
-  sprintf(buffer, "%d/%d", current, total);
-  display.drawStr(area.x + 2, animY + 17, buffer);
+  sprintf(buffer, "%d/%d", current + 1, total);  // current+1 使计数从1开始
+  display.drawStr(getCenterX(buffer), area.y + area.height - 3, buffer);
 
   display.sendBuffer();
 }
@@ -483,12 +505,13 @@ void displayComplete() {
   DisplayArea area = getDisplayArea();
   display.clearBuffer();
 
-  // 完成文字居中 - 使用较大字体
+  // 标题文字居中
   display.setFont(u8g2_font_helvB10_tf);  // Bold 10pt
   int titleY = area.y + 9;
-  display.drawStr(getCenterX(TEXT_COMPLETE[currentLanguage]), titleY, TEXT_COMPLETE[currentLanguage]);
+  const char* complete = "Enjoy Wash!";  // 洗车愉快
+  display.drawStr(getCenterX(complete), titleY, complete);
 
-  // 对勾图标（居中，稍微上移）
+  // 对勾图标（居中）
   int centerX = area.x + area.width / 2;
   int centerY = titleY + 16;
   // 画对勾（双线加粗效果）
@@ -497,16 +520,12 @@ void displayComplete() {
   display.drawLine(centerX - 10, centerY + 1, centerX - 4, centerY + 9);
   display.drawLine(centerX - 4, centerY + 9, centerX + 10, centerY - 5);
 
-  // 剩余余额显示 (突出显示)
+  // 剩余余额显示
   display.setFont(u8g2_font_helvB10_tf);  // Bold 10pt
   char balanceText[20];
   sprintf(balanceText, "Remain $%.2f", currentCardInfo.balance);
   int balanceY = centerY + 18;
   display.drawStr(getCenterX(balanceText), balanceY, balanceText);
-
-  // 感谢文字居中
-  display.setFont(u8g2_font_helvB08_tf);  // Bold 8pt
-  display.drawStr(getCenterX(TEXT_THANK_YOU[currentLanguage]), area.y + area.height - 3, TEXT_THANK_YOU[currentLanguage]);
 
   display.sendBuffer();
 }

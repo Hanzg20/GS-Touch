@@ -261,7 +261,7 @@ bool checkAndRecoverNFC() {
 // =================== NFC读卡 ===================
 // 全局变量：记录上次健康检查时间和连续失败次数
 static unsigned long lastNFCHealthCheck = 0;
-static int nfcReadFailCount = 0;
+int nfcReadFailCount = 0;  // 移除static，允许其他文件访问
 
 String readCardUID() {
   // 首次调用时初始化健康检查时间戳
@@ -285,12 +285,19 @@ String readCardUID() {
     return "";
   }
 
-  // 调试：检测到卡片存在
-  logInfo("🔍 检测到卡片，正在读取...");
+  // 静默检测：只在首次检测或连续失败时记录
+  static unsigned long lastDetectLog = 0;
+  if (millis() - lastDetectLog > 2000) {  // 2秒内只记录一次
+    logInfo("🔍 检测到卡片，正在读取...");
+    lastDetectLog = millis();
+  }
 
   if (!mfrc522.PICC_ReadCardSerial()) {
     nfcReadFailCount++;
-    logError("❌ 读取卡片序列号失败");
+    // ✅ 优化：只在连续失败3次后才记录错误，减少日志噪音
+    if (nfcReadFailCount >= 3 && nfcReadFailCount % 3 == 0) {
+      logError("❌ 读取卡片序列号失败 (连续" + String(nfcReadFailCount) + "次)");
+    }
     return "";
   }
 

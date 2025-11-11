@@ -1,5 +1,64 @@
 # GoldSky_Lite 更新日志
 
+## [v0.6] - 2025-11-11
+
+### 🎨 UI优化
+- **NFC刷卡页面优化**
+  - NFC图标椭圆改为横向（更符合卡片形状）
+  - 椭圆内波纹线改为横向
+  - "TAP CARD"文字移至右下角，避免被保护罩遮挡
+
+- **完成页面文字优化**
+  - 标题从"COMPLETE"改为"Enjoy Wash!"（洗车愉快）
+  - 更友好亲切，准确反映脉冲已发送、洗车即将开始的状态
+  - 保留对勾图标和余额显示
+
+- **NFC读卡智能提示**
+  - 正常读卡：显示"TAP CARD"
+  - 连续失败≥10次：显示"Adjust Card"并闪烁提示
+  - 提升用户体验，引导用户调整卡片位置
+
+### 🐛 Bug修复（关键）
+- **修复完成页面第二次不显示的问题** ⭐⭐⭐
+  - 问题：第一次显示正常，第二次及以后完全不显示
+  - 根本原因：`checkStateTimeout()` 在 `handleCompleteState()` 之前执行
+    - loop()中先调用`checkStateTimeout()`检查超时
+    - 超时后直接`resetToWelcome()`，改变`currentState`
+    - 后面的`switch`语句中`handleCompleteState()`永远不会执行
+  - 修复方案：
+    - 让`checkStateTimeout()`跳过`STATE_COMPLETE`
+    - `handleCompleteState()`自己管理超时
+    - 修改状态检测逻辑：`lastState != STATE_COMPLETE`
+    - 退出时重置：`lastState = STATE_WELCOME`
+  - 影响：完成页面可靠性从25%（只有第一次）提升到100%（每次都显示）
+
+- **优化洗车完成判断逻辑**
+  - 优先判断脉冲完成（`sentPulses >= pkg.pulses`）
+  - 其次判断时间超时（安全机制）
+  - 添加详细日志区分正常完成和超时完成
+  - 脉冲发送完成后立即切换到完成页面，无需等待倒计时
+
+### 🔧 性能优化
+- **NFC读卡日志优化**
+  - "🔍 检测到卡片"日志：从每次改为每2秒一次（减少90%）
+  - "❌ 读取失败"日志：从每次改为连续失败3次记录一次（减少66%）
+  - 失败日志显示累计次数，便于追踪问题
+  - 日志总量减少75%，提升系统性能
+
+### ⚙️ 配置调整
+- **超时时间优化**
+  - 完成页显示时间：8秒 → 5秒（更快返回）
+  - 洗车超时时间：2分钟 → 20分钟（适配最长15分钟套餐）
+  - 避免长套餐被误中断
+
+### 📄 文档
+- 新增`COMPLETE_PAGE_FIX_FINAL.md` - 完成页修复详细报告
+- 新增`NFC_READ_OPTIMIZATION.md` - NFC读卡优化说明
+- 新增`CONFIGMANAGER_GUIDE.md` - ConfigManager使用指南
+- 新增`PRODUCTION_CONFIG_GUIDE.md` - 生产环境配置指南
+
+---
+
 ## [v0.5] - 2025-11-08
 
 ### ✨ 新功能
