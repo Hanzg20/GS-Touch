@@ -262,7 +262,7 @@ void displayCardScan() {
       display.setFont(u8g2_font_helvB10_tf);  // 加粗字体
     }
   } else {
-    prompt = "TAP CARD";
+    prompt = "Tap to Pay";  // ✅ 更友好的提示
   }
 
   int promptX = area.x + area.width - 60;  // 向左移动10像素（50→60）

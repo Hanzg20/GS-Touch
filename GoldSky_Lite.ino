@@ -41,6 +41,9 @@
 // =================== 其他全局变量 ===================
 bool watchdogEnabled = false;
 
+// 日志级别全局变量（可在运行时通过串口命令修改）
+int CURRENT_LOG_LEVEL = LOG_LEVEL_INFO;
+
 // =================== 全局对象 ===================
 // 2.42" OLED SSD1309 128x64 I2C (180度旋转)
 U8G2_SSD1309_128X64_NONAME0_F_HW_I2C display(U8G2_R2, U8X8_PIN_NONE, I2C_SCL, I2C_SDA);
@@ -256,7 +259,7 @@ CardInfo getCardInfoFromSupabase(const String& decimalUID) {
   }
 
   if (!sysStatus.wifiConnected) {
-    logInfo("🔄 离线模式测试");
+    logDebug("🔄 离线模式测试");
     if (decimalUID == "2345408116" || decimalUID == "1210711100") {
       info.displayCardNumber = "JC-VIP-8116";
       info.cardNumber = "****8116";
@@ -266,7 +269,7 @@ CardInfo getCardInfoFromSupabase(const String& decimalUID) {
       info.userName = "Test User";
       info.cardType = "Premium";
       info.lastTransactionDate = "2025-10-29";
-      logInfo("✅ 离线验证成功");
+      logDebug("✅ 离线验证成功");
     }
     return info;
   }
@@ -342,10 +345,10 @@ CardInfo getCardInfoFromSupabase(const String& decimalUID) {
       info.lastTransactionDate = "Never";
     }
 
-    logInfo("✅ 在线验证成功");
-    logInfo("  完整卡号: " + info.displayCardNumber);
-    logInfo("  会员类型: " + info.cardType);
-    logInfo("  最后使用: " + info.lastTransactionDate);
+    logDebug("✅ 在线验证成功");
+    logDebug("  完整卡号: " + info.displayCardNumber);
+    logDebug("  会员类型: " + info.cardType);
+    logDebug("  最后使用: " + info.lastTransactionDate);
   } else {
     logError("❌ API错误: HTTP " + String(httpCode));
   }
@@ -432,7 +435,7 @@ void loadOfflineQueue() {
   }
 
   if (offlineQueueCount > 0) {
-    logInfo("📥 加载了 " + String(offlineQueueCount) + " 笔离线交易");
+    logInfo("📥 离线缓存: " + String(offlineQueueCount) + " 笔");
   }
 }
 
@@ -564,7 +567,7 @@ void handleWelcomeState() {
     selectedPackage = 0;
     stateStartTime = millis();
     beepShort();
-    logInfo("✅ 用户启动服务");
+    logDebug("✅ 用户启动服务");
   }
 }
 
@@ -594,12 +597,12 @@ void handleSelectPackageState() {
       currentState = STATE_VIP_QUERY;
       stateStartTime = millis();
       beepShort();
-      logInfo("进入VIP信息查询");
+      logDebug("进入VIP信息查询");
     } else {
       currentState = STATE_CARD_SCAN;
       stateStartTime = millis();
       beepShort();
-      logInfo("套餐选择: " + String(packages[selectedPackage].name_en));
+      logDebug("套餐选择: " + String(packages[selectedPackage].name_en));
     }
   }
 }
@@ -615,7 +618,7 @@ void handleCardScanState() {
   if (lastDebugPrint == 0 || millis() - lastDebugPrint > 5000) {
     byte version = mfrc522.PCD_ReadRegister(mfrc522.VersionReg);
 
-    logInfo("等待刷卡... [NFC版本: 0x" + String(version, HEX) + ", 状态: " +
+    logVerbose("等待刷卡... [NFC版本: 0x" + String(version, HEX) + ", 状态: " +
             (sysStatus.nfcWorking ? "正常" : "异常") + "]");
 
     // 第一次打印时检查并修复天线状态
@@ -623,7 +626,7 @@ void handleCardScanState() {
       byte txControl = mfrc522.PCD_ReadRegister(MFRC522::TxControlReg);
       byte gain = mfrc522.PCD_ReadRegister(MFRC522::RFCfgReg);
 
-      logInfo("   天线: 0x" + String(txControl, HEX) + " (bit0&1应=1), 增益: 0x" + String(gain, HEX));
+      logDebug("   天线: 0x" + String(txControl, HEX) + " (bit0&1应=1), 增益: 0x" + String(gain, HEX));
 
       // 如果天线被关闭，强制重新开启
       if ((txControl & 0x03) != 0x03) {
@@ -636,7 +639,7 @@ void handleCardScanState() {
         // 验证
         txControl = mfrc522.PCD_ReadRegister(MFRC522::TxControlReg);
         gain = mfrc522.PCD_ReadRegister(MFRC522::RFCfgReg);
-        logInfo("   修复后: 天线=0x" + String(txControl, HEX) + ", 增益=0x" + String(gain, HEX));
+        logDebug("   修复后: 天线=0x" + String(txControl, HEX) + ", 增益=0x" + String(gain, HEX));
       }
 
       antennaInfoShown = true;
@@ -661,7 +664,7 @@ void handleCardScanState() {
   if (uid.length() > 0) {
     beepShort();
 
-    displayProcessing("Verifying Card...", 0.3);
+    displayProcessing("Verifying...", 0.3);
     ledIndicator.network = LED_BLINK_FAST;
     updateLEDIndicators();
 
@@ -676,7 +679,7 @@ void handleCardScanState() {
         float balanceBefore = currentCardInfo.balance;
         float balanceAfter = balanceBefore - amount;
 
-        displayProcessing("Processing Payment...", 0.6);
+        displayProcessing("Processing...", 0.6);
 
         bool success = updateCardBalance(currentCardInfo.cardUIDDecimal, balanceAfter);
         recordTransaction(currentCardInfo.cardUIDDecimal, -amount, balanceBefore, String(pkg.name_en));
@@ -685,14 +688,14 @@ void handleCardScanState() {
           lastSuccessfulOperation = millis();  // ✅ 优化1: 支付成功
           consecutiveErrors = 0;  // ✅ 重置错误计数
           currentCardInfo.balance = balanceAfter;
-          displayProcessing("Payment Success!", 1.0);
+          displayProcessing("Paid!", 1.0);
           delay(1000);
 
           // ✅ 扣费成功后进入准备状态
           currentState = STATE_SYSTEM_READY;
           stateStartTime = millis();
           beepSuccess();
-          logInfo("✅ 支付成功，余额: $" + String(balanceAfter, 2));
+          logDebug("✅ 支付成功，余额: $" + String(balanceAfter, 2));
         } else {
           consecutiveErrors++;  // ✅ 优化1: 支付失败
           displayError("Transaction Failed");
@@ -726,7 +729,7 @@ void handleVIPQueryState() {
   if (uid.length() > 0) {
     beepShort();
 
-    displayProcessing("Querying Card Info...", 0.5);
+    displayProcessing("Querying...", 0.5);
     ledIndicator.network = LED_BLINK_FAST;
     updateLEDIndicators();
 
@@ -736,10 +739,10 @@ void handleVIPQueryState() {
       currentState = STATE_VIP_DISPLAY;
       stateStartTime = millis();
       beepSuccess();
-      logInfo("✅ VIP信息查询成功");
-      logInfo("  卡号: " + currentCardInfo.displayCardNumber);
-      logInfo("  余额: $" + String(currentCardInfo.balance, 2));
-      logInfo("  最后使用: " + currentCardInfo.lastTransactionDate);
+      logInfo("✅ VIP查询成功");
+      logDebug("  卡号: " + currentCardInfo.displayCardNumber);
+      logDebug("  余额: $" + String(currentCardInfo.balance, 2));
+      logDebug("  最后使用: " + currentCardInfo.lastTransactionDate);
     } else {
       displayError("Invalid or Inactive Card");
       beepError();
@@ -778,7 +781,7 @@ void handleSystemReadyState() {
 
   if (progress > 1.0) progress = 1.0;
 
-  displayProcessing("System Ready...", progress);
+  displayProcessing("Ready...", progress);
 
   if (elapsed >= STATE_TIMEOUT_READY_MS) {
     // ✅ 进入洗车状态时，重置所有脉冲相关变量
@@ -789,7 +792,7 @@ void handleSystemReadyState() {
     lastPulseTime = millis();    // ✅ 重置脉冲计时器为当前时间
 
     logInfo("✅ 开始洗车服务");
-    logInfo("  脉冲计时器初始化: " + String(lastPulseTime));
+    logDebug("  脉冲计时器初始化: " + String(lastPulseTime));
   }
 }
 
@@ -820,7 +823,7 @@ void handleProcessingState() {
     sentPulses++;
     lastPulseTime = millis();  // 更新全局变量
 
-    logInfo("🚿 脉冲 " + String(sentPulses) + "/" + String(pkg.pulses));
+    logDebug("🚿 脉冲 " + String(sentPulses) + "/" + String(pkg.pulses));
   }
 
   // 检查是否完成：脉冲数达到目标
@@ -828,14 +831,14 @@ void handleProcessingState() {
     currentState = STATE_COMPLETE;
     stateStartTime = millis();
     digitalWrite(PULSE_OUT, LOW);
-    logInfo("✅ 洗车完成! (脉冲: " + String(sentPulses) + "/" + String(pkg.pulses) + ")");
+    logInfo("✅ 洗车完成 (脉冲: " + String(sentPulses) + "/" + String(pkg.pulses) + ")");
   }
   // 或者时间超时（安全机制）
   else if (elapsed >= totalTimeMs) {
     currentState = STATE_COMPLETE;
     stateStartTime = millis();
     digitalWrite(PULSE_OUT, LOW);
-    logInfo("⚠️ 洗车超时完成! (时间到，脉冲: " + String(sentPulses) + "/" + String(pkg.pulses) + ")");
+    logWarn("⚠️ 洗车超时 (时间到，脉冲: " + String(sentPulses) + "/" + String(pkg.pulses) + ")");
   }
 }
 
@@ -853,14 +856,14 @@ void handleCompleteState() {
     displayRefreshed = false;
     soundPlayed = false;
     lastState = STATE_COMPLETE;
-    logInfo("✅ 进入完成页面");
+    logDebug("✅ 进入完成页面");
   }
 
   // 只在首次进入时刷新显示
   if (!displayRefreshed) {
     displayComplete();
     displayRefreshed = true;
-    logInfo("✅ 显示完成页面");
+    logDebug("✅ 显示完成页面");
   }
 
   // 只在首次进入时播放声音
@@ -875,14 +878,14 @@ void handleCompleteState() {
   if (millis() - stateStartTime > STATE_TIMEOUT_COMPLETE_MS) {
     // ✅ 修复：退出时重置lastState，确保下次能正确进入
     lastState = STATE_WELCOME;
-    logInfo("⏱️ 完成页面超时，返回欢迎页");
+    logDebug("⏱️ 完成页面超时，返回欢迎页");
     resetToWelcome();
   }
 }
 
 // =================== 系统管理 ===================
 void resetToWelcome() {
-  logInfo("返回欢迎屏幕");
+  logDebug("返回欢迎屏幕");
 
   currentState = STATE_WELCOME;
   cardUID = "";
@@ -934,11 +937,11 @@ void performHealthCheck() {
   if (millis() - lastHeartbeat > 60000) {
     sysStatus.updateMemoryStats();
 
-    logInfo("=== 系统健康检查 ===");
-    logInfo("运行: " + String(millis() / 1000) + "s");
-    logInfo("内存: " + String(ESP.getFreeHeap() / 1024) + "KB");
-    logInfo("交易: " + String(sysStatus.totalTransactions));
-    logInfo("收入: $" + String(sysStatus.totalRevenue, 2));
+    logDebug("=== 系统健康检查 ===");
+    logDebug("运行: " + String(millis() / 1000) + "s");
+    logDebug("内存: " + String(ESP.getFreeHeap() / 1024) + "KB");
+    logDebug("交易: " + String(sysStatus.totalTransactions));
+    logDebug("收入: $" + String(sysStatus.totalRevenue, 2));
 
     // =================== 内存保护机制（方案A优化2）===================
     uint32_t freeHeap = ESP.getFreeHeap();
@@ -1014,6 +1017,9 @@ void setup() {
   logInfo("💾 初始化NVS存储...");
   prefs.begin("goldsky", false);  // false = 读写模式
 
+  // ✅ WiFi配置已更新，临时重置代码已移除
+  // config.resetToDefaults(WIFI_SSID, WIFI_PASSWORD, SUPABASE_URL, SUPABASE_KEY, MACHINE_ID);
+
   // 初始化配置管理器（从NVS加载或使用默认值）
   config.init(WIFI_SSID, WIFI_PASSWORD, SUPABASE_URL, SUPABASE_KEY, MACHINE_ID);
 
@@ -1033,16 +1039,16 @@ void setup() {
   delay(300);  // 增加延迟，等待I2C总线稳定
 
   // I2C设备扫描
-  logInfo("📡 扫描I2C总线...");
+  logDebug("📡 扫描I2C总线...");
   int deviceCount = 0;
   for (byte addr = 1; addr < 127; addr++) {
     Wire.beginTransmission(addr);
     if (Wire.endTransmission() == 0) {
-      logInfo("   发现设备: 0x" + String(addr, HEX));
+      logDebug("   发现设备: 0x" + String(addr, HEX));
       deviceCount++;
     }
   }
-  logInfo("   共发现 " + String(deviceCount) + " 个I2C设备");
+  logDebug("   共发现 " + String(deviceCount) + " 个I2C设备");
 
   if (deviceCount == 0) {
     logError("❌ I2C总线上没有发现任何设备！");
@@ -1050,20 +1056,20 @@ void setup() {
   }
 
   // OLED初始化（增加重试机制）
-  logInfo("🔄 尝试初始化OLED...");
+  logDebug("🔄 尝试初始化OLED...");
   bool oledSuccess = false;
 
   for (int attempt = 1; attempt <= 3; attempt++) {
-    logInfo("   尝试 " + String(attempt) + "/3...");
+    logDebug("   尝试 " + String(attempt) + "/3...");
     delay(200);
 
     if (display.begin()) {
       display.enableUTF8Print();
       oledSuccess = true;
-      logInfo("✅ OLED初始化成功（第" + String(attempt) + "次尝试）");
+      logInfo("✅ OLED初始化成功");
       break;
     } else {
-      logWarn("   第" + String(attempt) + "次失败");
+      logWarn("   OLED第" + String(attempt) + "次初始化失败");
       delay(500);
     }
   }
@@ -1078,7 +1084,7 @@ void setup() {
     display.sendBuffer();
     delay(1000);
 
-    logInfo("✅ OLED显示测试通过");
+    logDebug("✅ OLED显示测试通过");
   } else {
     sysStatus.displayWorking = false;
     logError("❌ OLED初始化完全失败（3次尝试）");
@@ -1090,7 +1096,7 @@ void setup() {
   }
 
   // ============== 然后初始化SPI和NFC ==============
-  logInfo("🔌 初始化SPI和NFC...");
+  logDebug("🔌 初始化SPI和NFC...");
 
   // 使用自定义引脚初始化SPI
   SPI.begin(SPI_SCK, SPI_MISO, SPI_MOSI, RC522_CS);
@@ -1108,13 +1114,13 @@ void setup() {
   delay(200);
 
   byte version = mfrc522.PCD_ReadRegister(mfrc522.VersionReg);
-  logInfo("   读取到NFC版本号: 0x" + String(version, HEX));
+  logDebug("   读取到NFC版本号: 0x" + String(version, HEX));
 
   if (version != 0x00 && version != 0xFF) {
     sysStatus.nfcWorking = true;
     mfrc522.PCD_AntennaOn();
     mfrc522.PCD_SetAntennaGain(mfrc522.RxGain_max);
-    logInfo("✅ NFC初始化成功: MFRC522 v" + String(version, HEX));
+    logInfo("✅ NFC初始化成功: v0x" + String(version, HEX));
   } else {
     sysStatus.nfcWorking = false;
     logError("❌ NFC初始化失败，版本号: 0x" + String(version, HEX));
@@ -1152,11 +1158,8 @@ void setup() {
   currentState = STATE_WELCOME;
   stateStartTime = millis();
 
-  logInfo("=== 系统初始化完成 ===");
-  logInfo("服务选项: 4个洗车套餐 + VIP查询");
-  logInfo("✅ 脉冲逻辑已修复");
-  logInfo("✅ 模块化重构完成");
-  logInfo("系统已就绪！");
+  logInfo("🚀 系统已就绪");
+  logDebug("服务选项: 4个洗车套餐 + VIP查询");
   lastHeartbeat = millis();
   lastSuccessfulOperation = millis();  // 初始化成功操作时间戳
 }
@@ -1241,5 +1244,73 @@ void loop() {
     sysStatus.maxLoopTime = loopTime;
   }
 
+  // 串口命令处理（用于远程调试）
+  handleSerialCommands();
+
   delay(50);
+}
+
+// =================== 串口命令处理 ===================
+void handleSerialCommands() {
+  if (Serial.available()) {
+    String cmd = Serial.readStringUntil('\n');
+    cmd.trim();
+    cmd.toLowerCase();
+
+    if (cmd == "log error") {
+      CURRENT_LOG_LEVEL = LOG_LEVEL_ERROR;
+      Serial.println("✅ 日志级别: ERROR（仅错误）");
+    }
+    else if (cmd == "log warn") {
+      CURRENT_LOG_LEVEL = LOG_LEVEL_WARN;
+      Serial.println("✅ 日志级别: WARN（警告+错误）");
+    }
+    else if (cmd == "log info") {
+      CURRENT_LOG_LEVEL = LOG_LEVEL_INFO;
+      Serial.println("✅ 日志级别: INFO（商用推荐）");
+    }
+    else if (cmd == "log debug") {
+      CURRENT_LOG_LEVEL = LOG_LEVEL_DEBUG;
+      Serial.println("✅ 日志级别: DEBUG（调试模式）");
+    }
+    else if (cmd == "log verbose") {
+      CURRENT_LOG_LEVEL = LOG_LEVEL_VERBOSE;
+      Serial.println("✅ 日志级别: VERBOSE（详细模式）");
+    }
+    else if (cmd == "log status") {
+      Serial.println("\n=== 日志系统状态 ===");
+      Serial.print("当前级别: ");
+      switch(CURRENT_LOG_LEVEL) {
+        case LOG_LEVEL_ERROR: Serial.println("ERROR"); break;
+        case LOG_LEVEL_WARN: Serial.println("WARN"); break;
+        case LOG_LEVEL_INFO: Serial.println("INFO"); break;
+        case LOG_LEVEL_DEBUG: Serial.println("DEBUG"); break;
+        case LOG_LEVEL_VERBOSE: Serial.println("VERBOSE"); break;
+        default: Serial.println("UNKNOWN"); break;
+      }
+      Serial.println("脱敏: " + String(LOG_MASK_SENSITIVE ? "开启" : "关闭"));
+      Serial.println("===================\n");
+    }
+    else if (cmd == "cache") {
+      Serial.println("\n=== 离线缓存队列 ===");
+      Serial.printf("队列数量: %d/%d\n", offlineQueueCount, MAX_OFFLINE_QUEUE);
+      Serial.printf("WiFi状态: %s\n", sysStatus.wifiConnected ? "已连接" : "未连接");
+      if (offlineQueueCount == 0) {
+        Serial.println("✅ 队列为空");
+      }
+      Serial.println("===================\n");
+    }
+    else if (cmd == "help") {
+      Serial.println("\n=== 可用命令 ===");
+      Serial.println("log error   - 设置日志级别为ERROR");
+      Serial.println("log warn    - 设置日志级别为WARN");
+      Serial.println("log info    - 设置日志级别为INFO（商用）");
+      Serial.println("log debug   - 设置日志级别为DEBUG");
+      Serial.println("log verbose - 设置日志级别为VERBOSE");
+      Serial.println("log status  - 查看日志系统状态");
+      Serial.println("cache       - 查看离线缓存");
+      Serial.println("help        - 显示此帮助");
+      Serial.println("================\n");
+    }
+  }
 }

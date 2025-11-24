@@ -5,14 +5,62 @@
  * 包含：日志、蜂鸣器、LED控制、UID转换、按钮读取、NFC读卡
  */
 
-// =================== 日志函数 ===================
-void logMessage(const String& level, const String& message) {
-  Serial.printf("[%lu][%s] %s\n", millis(), level.c_str(), message.c_str());
+// =================== 日志函数（商用优化版）===================
+
+// 外部变量声明（定义在 GoldSky_Lite.ino）
+extern int CURRENT_LOG_LEVEL;
+
+// 敏感信息脱敏
+String maskSensitiveData(const String& data) {
+  #if LOG_MASK_SENSITIVE
+    if (data.length() > 4) {
+      // 只显示前2位和后2位，中间用*代替
+      String masked = data.substring(0, 2);
+      for (int i = 2; i < data.length() - 2; i++) {
+        masked += "*";
+      }
+      masked += data.substring(data.length() - 2);
+      return masked;
+    }
+  #endif
+  return data;
 }
 
-void logInfo(const String& message) { logMessage("INFO", message); }
-void logWarn(const String& message) { logMessage("WARN", message); }
-void logError(const String& message) { logMessage("ERROR", message); }
+// 统一日志输出（支持分级）
+void logMessage(int level, const String& levelStr, const String& message) {
+  // 只在当前级别允许时输出
+  if (level <= CURRENT_LOG_LEVEL) {
+    Serial.printf("[%lu][%s] %s\n", millis(), levelStr.c_str(), message.c_str());
+  }
+}
+
+// 分级日志函数
+void logError(const String& message) {
+  logMessage(LOG_LEVEL_ERROR, "ERROR", message);
+}
+
+void logWarn(const String& message) {
+  logMessage(LOG_LEVEL_WARN, "WARN", message);
+}
+
+void logInfo(const String& message) {
+  logMessage(LOG_LEVEL_INFO, "INFO", message);
+}
+
+void logDebug(const String& message) {
+  logMessage(LOG_LEVEL_DEBUG, "DEBUG", message);
+}
+
+void logVerbose(const String& message) {
+  logMessage(LOG_LEVEL_VERBOSE, "VERBOSE", message);
+}
+
+// 交易日志（自动脱敏）
+void logTransaction(const String& cardUID, float amount, const String& packageName) {
+  String maskedUID = maskSensitiveData(cardUID);
+  String msg = "💳 交易: 卡号=" + maskedUID + ", 金额=$" + String(amount, 2) + ", 套餐=" + packageName;
+  logInfo(msg);
+}
 
 // =================== 蜂鸣器函数 ===================
 void beepShort() {
@@ -288,7 +336,7 @@ String readCardUID() {
   // 静默检测：只在首次检测或连续失败时记录
   static unsigned long lastDetectLog = 0;
   if (millis() - lastDetectLog > 2000) {  // 2秒内只记录一次
-    logInfo("🔍 检测到卡片，正在读取...");
+    logVerbose("🔍 检测到卡片，正在读取...");  // 改为VERBOSE（商用不输出）
     lastDetectLog = millis();
   }
 
@@ -313,7 +361,10 @@ String readCardUID() {
   mfrc522.PICC_HaltA();
   mfrc522.PCD_StopCrypto1();
 
-  logInfo("读取到卡片: HEX=" + hexUID + ", DEC=" + decimalUID);
+  // 商用：脱敏显示
+  String maskedUID = maskSensitiveData(decimalUID);
+  logInfo("读取到卡片: " + maskedUID);
+  logDebug("完整UID: HEX=" + hexUID + ", DEC=" + decimalUID);  // 完整信息改为DEBUG
 
   // 成功读卡后重置失败计数
   nfcReadFailCount = 0;

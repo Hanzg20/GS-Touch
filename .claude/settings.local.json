@@ -8,7 +8,10 @@
       "Bash(git commit:*)",
       "Bash(git remote add:*)",
       "Bash(git branch:*)",
-      "Bash(git tag:*)"
+      "Bash(git tag:*)",
+      "Bash(git push:*)",
+      "Bash(arduino-cli compile:*)",
+      "Bash(del /q CONFIG_GUIDE.md UPLOAD_CHECKLIST.md COMPILE_GUIDE.md GIT_PUSH_GUIDE.md RELEASE_SUMMARY_V0.5.md BUGFIX_V0.5.1.md COMPLETE_PAGE_DEBUG.md COMPLETE_PAGE_FIX_FINAL.md NFC_READ_OPTIMIZATION.md UI_TEXT_ANALYSIS.md UI_TEXT_OPTIMIZATION_DONE.md PRODUCTION_LOG_OPTIMIZATION.md v0.6_TESTING_CHECKLIST.md v0.6_CODE_CHANGES_SUMMARY.md LOG_OPTIMIZATION_v0.6.1.md)"
     ],
     "deny": [],
     "ask": []

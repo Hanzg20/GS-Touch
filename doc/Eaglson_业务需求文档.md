@@ -1,9 +1,9 @@
 # Eaglson Coin Wash 洗车终端系统 - 业务流程需求文档
 
-**项目名称**: Eaglson Coin Wash - Intelligent Car Wash Terminal System  
-**硬件平台**: ESP32-S3  
-**版本**: v1.0  
-**文档日期**: 2024-01-28  
+**项目名称**: Eaglson Coin Wash - Intelligent Car Wash Terminal System
+**硬件平台**: ESP32-S3
+**版本**: v1.0
+**文档日期**: 2024-01-28
 **状态**: 需求确认中
 
 ---
@@ -39,15 +39,16 @@ Eaglson Coin Wash 是一款基于ESP32的智能洗车终端系统，旨在提供
 
 ### 1.3 硬件配置
 
-| 组件 | 型号 | 连接 |
-|-----|------|------|
-| 主控 | ESP32-S3 | - |
-| 显示 | OLED 128×64 | I2C (GPIO8/9) |
-| 读卡器 | RC522 | SPI (GPIO10-14) |
-| 按钮 | OK + SELECT | GPIO1, GPIO2 |
-| LED | RGB | GPIO5/6/7 |
-| 蜂鸣器 | - | GPIO16 |
-| 继电器 | - | GPIO4 |
+
+| 组件   | 型号         | 连接            |
+| ------ | ------------ | --------------- |
+| 主控   | ESP32-S3     | -               |
+| 显示   | OLED 128×64 | I2C (GPIO8/9)   |
+| 读卡器 | RC522        | SPI (GPIO10-14) |
+| 按钮   | OK + SELECT  | GPIO1, GPIO2    |
+| LED    | RGB          | GPIO5/6/7       |
+| 蜂鸣器 | -            | GPIO16          |
+| 继电器 | -            | GPIO4           |
 
 ### 1.4 软件架构
 
@@ -100,11 +101,13 @@ Eaglson Coin Wash 是一款基于ESP32的智能洗车终端系统，旨在提供
 #### 🔵 步骤1: 系统初始化与语言选择
 
 **功能描述**:
+
 - 系统启动后进入待机状态
 - 显示多语言欢迎界面
 - 用户选择界面语言
 
 **技术实现**:
+
 ```cpp
 // 系统状态
 enum SystemState {
@@ -127,24 +130,30 @@ enum Language {
 ```
 
 **用户界面**:
-| 语言 | 欢迎标语 |
-|-----|---------|
-| 英文 | Welcome to Eaglson Coin Wash |
+
+
+| 语言 | 欢迎标语                       |
+| ---- | ------------------------------ |
+| 英文 | Welcome to Eaglson Coin Wash   |
 | 法文 | Bienvenue au Lave-Auto Eaglson |
-| 中文 | 欢迎使用壹狗剩自助洗车服务 |
+| 中文 | 欢迎使用壹狗剩自助洗车服务     |
 
 **操作指引**:
-| 语言 | 操作提示 |
-|-----|---------|
-| 英文 | Press $ to switch, OK to confirm |
-| 法文 | Appuyez $ pour changer, OK pour confirmer |
-| 中文 | 按$切换，OK确认 |
 
-**超时设置**: 
+
+| 语言 | 操作提示                                  |
+| ---- | ----------------------------------------- |
+| 英文 | Press $ to switch, OK to confirm          |
+| 法文 | Appuyez $ pour changer, OK pour confirmer |
+| 中文 | 按$切换，OK确认                           |
+
+**超时设置**:
+
 - 20秒无操作自动返回待机
 - 超时提示: "Timeout, returning to welcome screen"
 
 **交互反馈**:
+
 - SELECT 按钮: 切换语言，LED 闪烁，蜂鸣器短响
 - OK 按钮: 确认选择，LED 常亮，蜂鸣器长响
 - LED 状态: 🟢 绿灯 → 🔵 蓝灯
@@ -152,20 +161,23 @@ enum Language {
 #### 🟢 步骤2: 洗车套餐选择
 
 **功能描述**:
+
 - 显示洗车套餐列表
 - 用户选择需要的套餐
 - 显示价格和时长信息
 
 **套餐配置** (参考项目配置):
 
-| 序号 | 套餐名称 | 时长 | 价格 | 脉冲数 |
-|-----|---------|------|------|--------|
-| 1 | Quick Wash | 5分钟 | $5.00 | 5个 |
-| 2 | Standard | 10分钟 | $15.00 | 10个 |
-| 3 | Deluxe | 15分钟 | $20.00 | 15个 |
-| 4 | Premium | 30分钟 | $30.00 | 30个 |
+
+| 序号 | 套餐名称   | 时长   | 价格   | 脉冲数 |
+| ---- | ---------- | ------ | ------ | ------ |
+| 1    | Quick Wash | 5分钟  | $5.00  | 5个    |
+| 2    | Standard   | 10分钟 | $15.00 | 10个   |
+| 3    | Deluxe     | 15分钟 | $20.00 | 15个   |
+| 4    | Premium    | 30分钟 | $30.00 | 30个   |
 
 **技术实现**:
+
 ```cpp
 struct Package {
   const char* name;
@@ -196,17 +208,21 @@ Package packages[] = {
 ```
 
 **操作指引**:
-| 语言 | 操作提示 |
-|-----|---------|
-| 英文 | Press $ to select, OK to confirm |
+
+
+| 语言 | 操作提示                                        |
+| ---- | ----------------------------------------------- |
+| 英文 | Press $ to select, OK to confirm                |
 | 法文 | Appuyez $ pour sélectionner, OK pour confirmer |
-| 中文 | 按$选择，OK确认 |
+| 中文 | 按$选择，OK确认                                 |
 
 **超时设置**:
+
 - 30秒无操作自动返回语言选择
 - 超时提示: "Selection timeout, please start again"
 
 **交互反馈**:
+
 - SELECT 按钮: 切换套餐，LED 闪烁，蜂鸣器短响
 - OK 按钮: 确认套餐，进入刷卡界面
 - LED 状态: 🔵 蓝灯闪烁
@@ -216,11 +232,13 @@ Package packages[] = {
 ##### 3.1 刷卡检测
 
 **功能描述**:
+
 - 显示刷卡提示界面
 - 等待用户将NFC卡片贴近读卡器
 - 读取卡片UID
 
 **用户界面**:
+
 ```
 ┌─────────────────────────┐
 │  Please tap card        │  <- 刷卡提示
@@ -234,19 +252,23 @@ Package packages[] = {
 ```
 
 **操作指引**:
-| 语言 | 提示文字 |
-|-----|---------|
-| 英文 | Please tap your card |
+
+
+| 语言 | 提示文字                     |
+| ---- | ---------------------------- |
+| 英文 | Please tap your card         |
 | 法文 | Veuillez appuyer votre carte |
-| 中文 | 请刷卡 |
+| 中文 | 请刷卡                       |
 
 **超时设置**:
+
 - 15秒未检测到卡片自动返回套餐选择
 - 超时提示: "No card detected, please try again"
 
 ##### 3.2 卡片验证 (Supabase API)
 
 **功能描述**:
+
 - 调用Supabase API查询卡片信息
 - 验证卡片有效性
 - 检查余额是否充足
@@ -270,11 +292,13 @@ GET /rest/v1/jc_vip_cards?card_uid=eq.{uid}
 ```
 
 **验证规则**:
+
 1. **卡片存在性检查**: 卡片UID必须在数据库中
 2. **激活状态检查**: `is_active` 必须为 `true`
 3. **余额充足检查**: `card_credit >= package_price`
 
 **技术实现**:
+
 ```cpp
 struct CardInfo {
   String cardNumber;   // 卡号（脱敏）
@@ -296,6 +320,7 @@ CardInfo validateCard(const String& uid) {
 ##### 3.3 显示卡片信息
 
 **信息展示**:
+
 ```
 ┌─────────────────────────┐
 │  Card Detected          │  <- 标题
@@ -312,13 +337,16 @@ CardInfo validateCard(const String& uid) {
 ```
 
 **操作指引**:
-| 语言 | 确认提示 |
-|-----|---------|
-| 英文 | Press OK to confirm payment |
+
+
+| 语言 | 确认提示                              |
+| ---- | ------------------------------------- |
+| 英文 | Press OK to confirm payment           |
 | 法文 | Appuyez OK pour confirmer le paiement |
-| 中文 | 按OK确认支付 |
+| 中文 | 按OK确认支付                          |
 
 **错误处理**:
+
 ```
 ❌ 卡片无效: "Invalid card, please try another card"
 ❌ 余额不足: "Insufficient balance, please select another package"
@@ -328,11 +356,13 @@ CardInfo validateCard(const String& uid) {
 ##### 3.4 支付确认
 
 **功能描述**:
+
 - 显示确认界面
 - 支持取消操作
 - 执行支付扣款
 
 **用户界面**:
+
 ```
 ┌─────────────────────────┐
 │  Confirm Order          │  <- 标题
@@ -349,12 +379,14 @@ CardInfo validateCard(const String& uid) {
 ```
 
 **支付流程**:
+
 1. 用户按 **OK** → 执行扣款
 2. 调用 Supabase API 更新余额
 3. 记录交易历史
 4. 进入洗车执行
 
 **取消流程**:
+
 1. 用户按 **SELECT** → 返回套餐选择
 2. 不扣除余额
 3. 显示取消提示
@@ -364,11 +396,13 @@ CardInfo validateCard(const String& uid) {
 ##### 4.1 执行洗车 (脉冲控制)
 
 **功能描述**:
+
 - 扣除卡片余额
 - 发送脉冲信号控制洗车计时器
 - 显示洗车进度
 
 **扣款API**:
+
 ```javascript
 // Supabase 余额更新接口
 PATCH /rest/v1/jc_vip_cards?card_uid=eq.{uid}
@@ -392,6 +426,7 @@ POST /rest/v1/jc_transactions
 ```
 
 **脉冲控制**:
+
 ```cpp
 // 脉冲参数
 #define PULSE_WIDTH_MS      100    // 脉冲宽度: 100ms
@@ -404,7 +439,7 @@ void sendPulses(int count) {
     delay(PULSE_WIDTH_MS);
     digitalWrite(PULSE_OUT, LOW);
     delay(PULSE_INTERVAL_MS);
-    
+  
     // 每5个脉冲响一声
     if (i % 5 == 0) {
       beepShort();
@@ -414,6 +449,7 @@ void sendPulses(int count) {
 ```
 
 **用户界面**:
+
 ```
 ┌─────────────────────────┐
 │  Wash in Progress       │  <- 标题
@@ -428,25 +464,30 @@ void sendPulses(int count) {
 ```
 
 **倒计时显示**:
+
 - 根据套餐时长显示倒计时
 - 实时更新剩余时间
 - 格式: MM:SS
 
 **倒计时文案**:
-| 语言 | 进行中提示 |
-|-----|-----------|
+
+
+| 语言 | 进行中提示                           |
+| ---- | ------------------------------------ |
 | 英文 | Wash in Progress... Enjoy Your Wash! |
-| 法文 | Lavage en cours... Bon lavage! |
-| 中文 | 洗车进行中...洗车愉快！ |
+| 法文 | Lavage en cours... Bon lavage!       |
+| 中文 | 洗车进行中...洗车愉快！              |
 
 ##### 4.2 完成提示
 
 **功能描述**:
+
 - 显示洗车完成信息
 - 播放成功提示音
 - 自动返回待机
 
 **用户界面**:
+
 ```
 ┌─────────────────────────┐
 │   Complete!             │  <- 标题
@@ -461,13 +502,16 @@ void sendPulses(int count) {
 ```
 
 **完成文案**:
-| 语言 | 完成信息 |
-|-----|---------|
+
+
+| 语言 | 完成信息                               |
+| ---- | -------------------------------------- |
 | 英文 | Thank you for using Eaglson Coin Wash! |
-| 法文 | Merci d'utiliser Eaglson Coin Wash! |
-| 中文 | 感谢使用壹狗剩自助洗车！ |
+| 法文 | Merci d'utiliser Eaglson Coin Wash!    |
+| 中文 | 感谢使用壹狗剩自助洗车！               |
 
 **交互反馈**:
+
 - LED 状态: 🟢 绿灯常亮
 - 蜂鸣器: 成功提示音（两声短响）
 - 持续时间: 5秒
@@ -475,11 +519,13 @@ void sendPulses(int count) {
 ##### 4.3 系统复位
 
 **功能描述**:
+
 - 清空临时数据
 - 重置状态机
 - 返回待机状态
 
 **复位流程**:
+
 ```cpp
 void resetSystem() {
   // 清空临时变量
@@ -503,29 +549,33 @@ void resetSystem() {
 ### 3.1 多语言支持
 
 **支持语言**:
+
 1. **English (英文)** - 默认语言
 2. **Français (法语)** - 完整翻译
 3. **中文** - 简体中文
 
 **文字资源** (示例):
 
-| 场景 | 英文 | 法文 | 中文 |
-|-----|------|-----|------|
+
+| 场景     | 英文                         | 法文                           | 中文                       |
+| -------- | ---------------------------- | ------------------------------ | -------------------------- |
 | 欢迎界面 | Welcome to Eaglson Coin Wash | Bienvenue au Lave-Auto Eaglson | 欢迎使用壹狗剩自助洗车服务 |
-| 选择语言 | Select Language | Choisir la langue | 选择语言 |
-| 选择套餐 | Select Package | Choisir le forfait | 选择套餐 |
-| 刷卡提示 | Please tap your card | Veuillez appuyer votre carte | 请刷卡 |
-| 处理中 | Processing... | Traitement en cours... | 处理中... |
-| 已完成 | Complete! | Terminé! | 完成！ |
+| 选择语言 | Select Language              | Choisir la langue              | 选择语言                   |
+| 选择套餐 | Select Package               | Choisir le forfait             | 选择套餐                   |
+| 刷卡提示 | Please tap your card         | Veuillez appuyer votre carte   | 请刷卡                     |
+| 处理中   | Processing...                | Traitement en cours...         | 处理中...                  |
+| 已完成   | Complete!                    | Terminé!                      | 完成！                     |
 
 ### 3.2 NFC 卡片验证
 
 **支持的卡片类型**:
+
 - Mifare Classic (4字节UID)
 - Mifare Ultralight (7字节UID)
 - ISO14443 Type A/B
 
 **卡片信息结构**:
+
 ```cpp
 struct CardInfo {
   String cardUID;        // 卡片UID (数据库主键)
@@ -540,6 +590,7 @@ struct CardInfo {
 ```
 
 **脱敏规则**:
+
 - 原始卡号: `CARD-1234567890`
 - 脱敏显示: `****7890`
 
@@ -548,6 +599,7 @@ struct CardInfo {
 **数据库表结构**:
 
 #### jc_vip_cards (会员卡表)
+
 ```sql
 CREATE TABLE jc_vip_cards (
   card_uid BIGINT PRIMARY KEY,      -- 卡片UID (整数)
@@ -563,6 +615,7 @@ CREATE TABLE jc_vip_cards (
 ```
 
 #### jc_transactions (交易记录表)
+
 ```sql
 CREATE TABLE jc_transactions (
   id SERIAL PRIMARY KEY,
@@ -577,6 +630,7 @@ CREATE TABLE jc_transactions (
 ```
 
 **API端点**:
+
 - 查询卡片: `GET /rest/v1/jc_vip_cards?card_uid=eq.{uid}`
 - 更新余额: `PATCH /rest/v1/jc_vip_cards?card_uid=eq.{uid}`
 - 记录交易: `POST /rest/v1/jc_transactions`
@@ -584,18 +638,21 @@ CREATE TABLE jc_transactions (
 ### 3.4 脉冲控制
 
 **脉冲参数**:
+
 - **宽度**: 100ms
 - **间隔**: 1000ms (1秒)
 - **电压**: 5V (高电平)
 - **波形**: 方波
 
 **脉冲与时间对应关系**:
+
 - 1个脉冲 = 1分钟洗车时间
 - 5个脉冲 = 5分钟
 - 10个脉冲 = 10分钟
 - 30个脉冲 = 30分钟
 
 **控制逻辑**:
+
 ```cpp
 // 发送指定数量的脉冲
 void sendPulseSequence(int pulseCount) {
@@ -603,10 +660,10 @@ void sendPulseSequence(int pulseCount) {
     // 发送脉冲
     digitalWrite(PULSE_OUT, HIGH);
     delay(100);  // 脉冲宽度
-    
+  
     digitalWrite(PULSE_OUT, LOW);
     delay(1000); // 脉冲间隔
-    
+  
     // 每5个脉冲反馈
     if (i % 5 == 0) {
       beepShort();
@@ -621,39 +678,42 @@ void sendPulseSequence(int pulseCount) {
 
 ### 4.1 硬件规格
 
-| 项目 | 规格 |
-|-----|------|
-| 主控芯片 | ESP32-S3 (双核240MHz) |
-| Flash | 8MB |
-| SRAM | 512KB |
-| 显示 | OLED 128×64 (SSD1306) |
-| 读卡器 | RC522 NFC (SPI) |
-| 按钮 | 2个 (OK + SELECT) |
-| LED | RGB 三色 |
-| 蜂鸣器 | 有源 |
-| 继电器 | 5V 光耦隔离 |
+
+| 项目     | 规格                   |
+| -------- | ---------------------- |
+| 主控芯片 | ESP32-S3 (双核240MHz)  |
+| Flash    | 8MB                    |
+| SRAM     | 512KB                  |
+| 显示     | OLED 128×64 (SSD1306) |
+| 读卡器   | RC522 NFC (SPI)        |
+| 按钮     | 2个 (OK + SELECT)      |
+| LED      | RGB 三色               |
+| 蜂鸣器   | 有源                   |
+| 继电器   | 5V 光耦隔离            |
 
 ### 4.2 软件规格
 
-| 项目 | 规格 |
-|-----|------|
-| 开发环境 | Arduino IDE 2.x |
-| 核心框架 | FreeRTOS |
-| 通信协议 | WiFi + HTTPS |
-| 数据库 | Supabase (PostgreSQL) |
-| 编程语言 | C/C++ |
-| 代码行数 | ~800行 |
+
+| 项目     | 规格                  |
+| -------- | --------------------- |
+| 开发环境 | Arduino IDE 2.x       |
+| 核心框架 | FreeRTOS              |
+| 通信协议 | WiFi + HTTPS          |
+| 数据库   | Supabase (PostgreSQL) |
+| 编程语言 | C/C++                 |
+| 代码行数 | ~800行                |
 
 ### 4.3 性能指标
 
-| 指标 | 目标值 |
-|-----|--------|
-| 系统启动时间 | < 3秒 |
-| NFC读取时间 | < 500ms |
-| API响应时间 | < 2秒 |
+
+| 指标         | 目标值  |
+| ------------ | ------- |
+| 系统启动时间 | < 3秒   |
+| NFC读取时间  | < 500ms |
+| API响应时间  | < 2秒   |
 | 状态切换时间 | < 100ms |
-| 脉冲发送精度 | ±10ms |
-| 系统稳定性 | > 99% |
+| 脉冲发送精度 | ±10ms  |
+| 系统稳定性   | > 99%   |
 
 ### 4.4 可靠性要求
 
@@ -670,6 +730,7 @@ void sendPulseSequence(int pulseCount) {
 ### 5.1 界面布局规范
 
 **OLED 128×64 显示区域**:
+
 - **顶部标题栏**: 0-15像素 (高度14px)
 - **内容区域**: 15-64像素 (高度49px)
 - **字体大小**: 1号字体 (6×8像素)
@@ -677,29 +738,32 @@ void sendPulseSequence(int pulseCount) {
 
 ### 5.2 状态指示
 
-| 状态 | LED颜色 | 模式 | 说明 |
-|-----|--------|------|------|
-| 待机 | 🟢 绿色 | 常亮 | 系统就绪 |
+
+| 状态   | LED颜色 | 模式 | 说明     |
+| ------ | ------- | ---- | -------- |
+| 待机   | 🟢 绿色 | 常亮 | 系统就绪 |
 | 操作中 | 🔵 蓝色 | 常亮 | 用户操作 |
 | 处理中 | 🔵 蓝色 | 闪烁 | 后台处理 |
-| 成功 | 🟢 绿色 | 闪烁 | 操作成功 |
-| 错误 | 🔴 红色 | 闪烁 | 系统错误 |
+| 成功   | 🟢 绿色 | 闪烁 | 操作成功 |
+| 错误   | 🔴 红色 | 闪烁 | 系统错误 |
 
 ### 5.3 声音反馈
 
-| 操作 | 提示音 | 时长 |
-|-----|--------|------|
-| 按钮按下 | 短响 | 50ms |
+
+| 操作     | 提示音 | 时长  |
+| -------- | ------ | ----- |
+| 按钮按下 | 短响   | 50ms  |
 | 操作成功 | 两短响 | 100ms |
 | 操作错误 | 三短响 | 300ms |
 | 系统启动 | 两短响 | 200ms |
 
 ### 5.4 按钮映射
 
-| 按钮 | GPIO | 功能 | 说明 |
-|-----|------|------|------|
-| OK | 1 | 确认 | 确认当前选择 |
-| SELECT | 2 | 选择 | 切换选项 |
+
+| 按钮   | GPIO | 功能 | 说明         |
+| ------ | ---- | ---- | ------------ |
+| OK     | 1    | 确认 | 确认当前选择 |
+| SELECT | 2    | 选择 | 切换选项     |
 
 ---
 
@@ -708,44 +772,51 @@ void sendPulseSequence(int pulseCount) {
 ### 6.1 错误类型
 
 #### 网络错误
+
 - WiFi 连接失败
 - Supabase API 超时
 - 数据库查询失败
 
 **处理方式**:
+
 - 显示错误提示
 - 自动重试 (最多3次)
 - 降级运行 (离线模式)
 
 #### 卡片错误
+
 - 卡片读取失败
 - 卡片不在数据库中
 - 卡片未激活
 - 余额不足
 
 **处理方式**:
+
 - 显示错误信息
 - 返回上一状态
 - 记录错误日志
 
 #### 硬件错误
+
 - OLED 初始化失败
 - NFC 读卡器故障
 - 脉冲发送失败
 
 **处理方式**:
+
 - 进入错误状态
 - 闪烁红色LED
 - 触发系统重启
 
 ### 6.2 错误提示
 
-| 错误类型 | 提示信息 | 操作 |
-|---------|---------|------|
-| 余额不足 | Insufficient balance | 返回套餐选择 |
-| 卡片无效 | Invalid card | 返回刷卡界面 |
-| 网络错误 | Network error | 重试或降级运行 |
-| 系统错误 | System error | 自动重启 |
+
+| 错误类型 | 提示信息             | 操作           |
+| -------- | -------------------- | -------------- |
+| 余额不足 | Insufficient balance | 返回套餐选择   |
+| 卡片无效 | Invalid card         | 返回刷卡界面   |
+| 网络错误 | Network error        | 重试或降级运行 |
+| 系统错误 | System error         | 自动重启       |
 
 ---
 
@@ -806,35 +877,35 @@ if (balance >= price) {
 
 ### 8.1 功能测试
 
-- [x] 系统启动测试
-- [x] 语言选择测试
-- [x] 套餐选择测试
-- [x] NFC 卡片读取测试
-- [x] Supabase API 测试
-- [x] 支付流程测试
-- [x] 脉冲发送测试
-- [x] 交易记录测试
+- [X]  系统启动测试
+- [X]  语言选择测试
+- [X]  套餐选择测试
+- [X]  NFC 卡片读取测试
+- [X]  Supabase API 测试
+- [X]  支付流程测试
+- [X]  脉冲发送测试
+- [X]  交易记录测试
 
 ### 8.2 压力测试
 
-- [ ] 连续100笔交易
-- [ ] 24小时运行测试
-- [ ] 内存泄漏测试
-- [ ] 并发处理测试
+- [ ]  连续100笔交易
+- [ ]  24小时运行测试
+- [ ]  内存泄漏测试
+- [ ]  并发处理测试
 
 ### 8.3 用户体验测试
 
-- [ ] 操作流程顺畅度
-- [ ] 界面响应速度
-- [ ] 错误提示友好度
-- [ ] 多语言准确性
+- [ ]  操作流程顺畅度
+- [ ]  界面响应速度
+- [ ]  错误提示友好度
+- [ ]  多语言准确性
 
 ### 8.4 安全性测试
 
-- [ ] 卡片信息加密
-- [ ] 网络传输安全
-- [ ] 余额计算准确性
-- [ ] 防止重复扣款
+- [ ]  卡片信息加密
+- [ ]  网络传输安全
+- [ ]  余额计算准确性
+- [ ]  防止重复扣款
 
 ---
 
@@ -871,9 +942,9 @@ Eaglson_Coin_Wash/
 
 ---
 
-**文档状态**: ✅ 需求确认  
-**更新日期**: 2024-01-28  
-**版本**: v1.0  
+**文档状态**: ✅ 需求确认
+**更新日期**: 2024-01-28
+**版本**: v1.0
 **作者**: System Architect Team
 
 ---
