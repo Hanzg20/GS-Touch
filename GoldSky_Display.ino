@@ -122,13 +122,13 @@ void displayPackageSelection() {
   // 第2行: 3, 4    (2个套餐，居中)
 
   int cellWidth = 40;   // 每个格子宽度
-  int cellHeight = 24;  // 每个格子高度
+  int cellHeight = 20;  // 每个格子高度（减小从24→20）
   int gapX = 3;         // 水平间距
-  int gapY = 3;         // 垂直间距
+  int gapY = 2;         // 垂直间距（减小从3→2）
 
   // 第一行起始位置（3个格子居中）
   int row1StartX = area.x + (area.width - (cellWidth * 3 + gapX * 2)) / 2;
-  int row1Y = area.y + 2;
+  int row1Y = area.y + 1;  // 从2→1，向上移动1像素
 
   // 第二行起始位置（2个格子居中）
   int row2StartX = area.x + (area.width - (cellWidth * 2 + gapX)) / 2;
@@ -171,12 +171,12 @@ void displayPackageSelection() {
       sprintf(line2, "%dmin", packages[i].minutes);  // 改为 "数值+min"
     }
 
-    // 居中显示文字
+    // 居中显示文字（调整垂直位置适应20px高度）
     int text1Width = display.getStrWidth(line1);
     int text2Width = display.getStrWidth(line2);
 
-    display.drawStr(x + (cellWidth - text1Width) / 2, y + 10, line1);
-    display.drawStr(x + (cellWidth - text2Width) / 2, y + 20, line2);
+    display.drawStr(x + (cellWidth - text1Width) / 2, y + 9, line1);   // 从10→9
+    display.drawStr(x + (cellWidth - text2Width) / 2, y + 18, line2);  // 从20→18
 
     display.setDrawColor(1);  // 恢复黑色
   }

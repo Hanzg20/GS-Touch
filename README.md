@@ -1,4 +1,4 @@
-# GoldSky_Lite v0.0.7
+# GoldSky_Lite v0.0.8
 
 智能洗车支付终端系统 - ESP32-S3 + NFC + OLED
 
