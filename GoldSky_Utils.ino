@@ -346,6 +346,7 @@ String readCardUID() {
     if (nfcReadFailCount >= 3 && nfcReadFailCount % 3 == 0) {
       logError("❌ 读取卡片序列号失败 (连续" + String(nfcReadFailCount) + "次)");
     }
+    healthMonitor.recordNFCFailure();  // 记录NFC读卡失败
     return "";
   }
 
@@ -368,6 +369,23 @@ String readCardUID() {
 
   // 成功读卡后重置失败计数
   nfcReadFailCount = 0;
+  healthMonitor.recordNFCSuccess();  // 记录NFC读卡成功
 
   return decimalUID;
+}
+
+// =================== 状态转字符串（健康度日志用）===================
+String getStateString(SystemState state) {
+  switch (state) {
+    case STATE_WELCOME:        return "WELCOME";
+    case STATE_SELECT_PACKAGE: return "SELECT_PACKAGE";
+    case STATE_CARD_SCAN:      return "CARD_SCAN";
+    case STATE_VIP_QUERY:      return "VIP_QUERY";
+    case STATE_VIP_DISPLAY:    return "VIP_DISPLAY";
+    case STATE_SYSTEM_READY:   return "SYSTEM_READY";
+    case STATE_PROCESSING:     return "PROCESSING";
+    case STATE_COMPLETE:       return "COMPLETE";
+    case STATE_ERROR:          return "ERROR";
+    default:                   return "UNKNOWN";
+  }
 }

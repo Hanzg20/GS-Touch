@@ -19,8 +19,8 @@
 // 硬件上电复位电路：VCC --[10kΩ]-- RST --[2.2μF]-- GND
 #define OLED_WIDTH 128
 #define OLED_HEIGHT 62
-#define I2C_SDA 42  // 修改：原来是8
-#define I2C_SCL 41  // 修改：原来是9
+#define I2C_SDA 42
+#define I2C_SCL 41
 
 // =================== 显示区域配置 ===================
 // 物理可视窗口: 55mm × 23mm
@@ -32,6 +32,7 @@
 
 // 边框样式 (0=无边框, 1=单线, 2=双线)
 #define BORDER_STYLE 0               // 无边框（节省空间）
+
 #define RC522_CS 10   //   CS=SAD
 #define SPI_MOSI 11
 #define SPI_SCK 12
@@ -77,14 +78,14 @@ VT	RST	GPIO 14	RC522_RST
 
 // =================== WiFi和网络配置 ===================
 // 注意：请在实际部署时修改为您的WiFi凭证
-#define WIFI_SSID "YourWiFiSSID"
-#define WIFI_PASSWORD "YourWiFiPassword"
+#define WIFI_SSID  "coinwash"        //"hanzg_hanyh"
+#define WIFI_PASSWORD "Mimashi123"    //"han1314521"
 #define WIFI_TIMEOUT_MS 20000
 
 // =================== Supabase 配置 ===================
-// 注意：请在实际部署时修改为您的Supabase配置
-#define SUPABASE_URL "https://your-project.supabase.co"
-#define SUPABASE_KEY "your-anon-key-here"
+// 生产环境配置
+#define SUPABASE_URL "https://ttbtxxpnvkcbyugzdqfw.supabase.co"
+#define SUPABASE_KEY "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InR0YnR4eHBudmtjYnl1Z3pkcWZ3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3MzA0ODk4ODksImV4cCI6MjA0NjA2NTg4OX0.gH03Z_3Cn77WFSUXcYYt21OwZGnFEwqQ1C8sZBjYkHQ"
 
 // =================== 日志配置 ===================
 // 日志级别定义
@@ -285,6 +286,76 @@ struct SystemStatus {
     if (freeHeap < freeHeapMin) {
       freeHeapMin = freeHeap;
     }
+  }
+};
+
+// =================== 健康度监测结构 ===================
+struct HealthMetrics {
+  // 系统运行时间
+  unsigned long uptimeSeconds = 0;
+
+  // 内存状态
+  uint32_t freeHeap = 0;
+  uint32_t minFreeHeap = UINT32_MAX;
+
+  // WiFi 状态
+  bool wifiConnected = false;
+  int wifiRSSI = 0;
+  int wifiReconnectCount = 0;
+
+  // NFC 模块状态
+  bool nfcInitialized = false;
+  String nfcFirmwareVersion = "";
+  bool nfcLastReadSuccess = false;
+  int nfcReadSuccessCount = 0;
+  int nfcReadFailCount = 0;
+  unsigned long nfcLastActiveTime = 0;
+
+  // OLED/I2C 状态
+  bool oledWorking = false;
+  int i2cErrorCount = 0;
+
+  // 业务统计
+  int totalTransactions = 0;
+  int transactionsLastHour = 0;
+  unsigned long lastTransactionTime = 0;
+
+  // 系统状态
+  String currentState = "";
+  unsigned long loopExecutionTimeMs = 0;
+  int watchdogResetCount = 0;
+
+  // 错误统计
+  String lastError = "";
+  int errorCountLast30Min = 0;
+  unsigned long lastErrorTime = 0;
+
+  // 更新方法
+  void update() {
+    uptimeSeconds = millis() / 1000;
+    freeHeap = ESP.getFreeHeap();
+    if (freeHeap < minFreeHeap) {
+      minFreeHeap = freeHeap;
+    }
+  }
+
+  // 计算NFC成功率
+  float getNFCSuccessRate() {
+    int total = nfcReadSuccessCount + nfcReadFailCount;
+    if (total == 0) return 0.0;
+    return (float)nfcReadSuccessCount * 100.0 / total;
+  }
+
+  // 计算NFC空闲时间（分钟）
+  int getNFCIdleMinutes() {
+    if (nfcLastActiveTime == 0) return 0;
+    return (millis() - nfcLastActiveTime) / 60000;
+  }
+
+  // 计算堆内存使用率
+  float getHeapUsagePercent() {
+    uint32_t totalHeap = ESP.getHeapSize();
+    return (float)(totalHeap - freeHeap) * 100.0 / totalHeap;
   }
 };
 

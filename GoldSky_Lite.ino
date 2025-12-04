@@ -34,6 +34,7 @@
 // =============== 配置文件 ===============
 #include "config.h"
 #include "ConfigManager.h"
+#include "HealthMonitor.h"
 
 // =================== 配置别名（使用config.h中定义的数组）===================
 #define packages PACKAGES  // 使用config.h中的PACKAGES数组
@@ -50,6 +51,10 @@ U8G2_SSD1309_128X64_NONAME0_F_HW_I2C display(U8G2_R2, U8X8_PIN_NONE, I2C_SCL, I2
 MFRC522 mfrc522(RC522_CS, RC522_RST);
 Preferences prefs;
 ConfigManager config(&prefs);
+
+// =================== 健康度监测 ===================
+HealthMetrics healthMetrics;
+HealthMonitor healthMonitor;
 
 // =================== 离线交易队列 ===================
 PendingTransaction offlineQueue[MAX_OFFLINE_QUEUE];
@@ -534,6 +539,9 @@ bool recordTransaction(const String& decimalUID, float amount, float balanceBefo
     sysStatus.totalTransactions++;
     sysStatus.totalRevenue += amount;
 
+    // 记录交易到健康度监测
+    healthMonitor.recordTransaction();
+
     // 成功后尝试同步离线队列
     if (offlineQueueCount > 0) {
       syncOfflineQueue();
@@ -937,6 +945,22 @@ void performHealthCheck() {
   if (millis() - lastHeartbeat > 60000) {
     sysStatus.updateMemoryStats();
 
+    // 更新健康度指标
+    healthMetrics.wifiConnected = WiFi.isConnected();
+    healthMetrics.wifiRSSI = WiFi.isConnected() ? WiFi.RSSI() : 0;
+    healthMetrics.totalTransactions = sysStatus.totalTransactions;
+
+    // NFC健康检查
+    if (sysStatus.nfcWorking) {
+      byte version = mfrc522.PCD_ReadRegister(mfrc522.VersionReg);
+      if (version == 0x00 || version == 0xFF) {
+        healthMetrics.nfcInitialized = false;
+        healthMonitor.recordError("NFC固件版本异常: 0x" + String(version, HEX));
+      } else {
+        healthMetrics.nfcInitialized = true;
+      }
+    }
+
     logDebug("=== 系统健康检查 ===");
     logDebug("运行: " + String(millis() / 1000) + "s");
     logDebug("内存: " + String(ESP.getFreeHeap() / 1024) + "KB");
@@ -1158,6 +1182,31 @@ void setup() {
   currentState = STATE_WELCOME;
   stateStartTime = millis();
 
+  // =================== 初始化健康度监测 ===================
+  logInfo("🏥 初始化健康度监测系统...");
+  healthMonitor.begin();
+
+  // 初始化健康度指标
+  healthMetrics.wifiConnected = sysStatus.wifiConnected;
+  healthMetrics.nfcInitialized = sysStatus.nfcWorking;
+  healthMetrics.oledWorking = sysStatus.displayWorking;
+  healthMetrics.wifiRSSI = WiFi.isConnected() ? WiFi.RSSI() : 0;
+
+  // 获取NFC固件版本
+  if (sysStatus.nfcWorking) {
+    byte version = mfrc522.PCD_ReadRegister(mfrc522.VersionReg);
+    healthMetrics.nfcFirmwareVersion = "0x" + String(version, HEX);
+  }
+
+  // 上传初始化基线日志（延迟3秒确保WiFi稳定）
+  delay(3000);
+  logInfo("📊 上传系统初始化基线日志...");
+  if (healthMonitor.uploadHealthLog()) {
+    logInfo("✅ 初始化日志上传成功");
+  } else {
+    logWarn("⚠️ 初始化日志上传失败（WiFi未连接或网络问题）");
+  }
+
   logInfo("🚀 系统已就绪");
   logDebug("服务选项: 4个洗车套餐 + VIP查询");
   lastHeartbeat = millis();
@@ -1192,6 +1241,9 @@ void loop() {
   // 健壮性增强：自动尝试恢复失败的模块
   tryRecoverNFC();
   tryRecoverWiFi();
+
+  // =================== 健康度监测（定期上传）===================
+  healthMonitor.checkAndUpload();
 
   switch (currentState) {
     case STATE_WELCOME:
@@ -1243,6 +1295,10 @@ void loop() {
   if (loopTime > sysStatus.maxLoopTime) {
     sysStatus.maxLoopTime = loopTime;
   }
+
+  // 更新健康度指标
+  healthMetrics.currentState = getStateString(currentState);
+  healthMetrics.loopExecutionTimeMs = loopTime;
 
   // 串口命令处理（用于远程调试）
   handleSerialCommands();
@@ -1300,6 +1356,17 @@ void handleSerialCommands() {
       }
       Serial.println("===================\n");
     }
+    else if (cmd == "health") {
+      healthMonitor.printStatus();
+    }
+    else if (cmd == "health upload") {
+      Serial.println("🏥 手动上传健康度日志...");
+      if (healthMonitor.uploadHealthLog()) {
+        Serial.println("✅ 上传成功");
+      } else {
+        Serial.println("❌ 上传失败");
+      }
+    }
     else if (cmd == "help") {
       Serial.println("\n=== 可用命令 ===");
       Serial.println("log error   - 设置日志级别为ERROR");
@@ -1309,6 +1376,8 @@ void handleSerialCommands() {
       Serial.println("log verbose - 设置日志级别为VERBOSE");
       Serial.println("log status  - 查看日志系统状态");
       Serial.println("cache       - 查看离线缓存");
+      Serial.println("health      - 查看系统健康度状态");
+      Serial.println("health upload - 立即上传健康度日志");
       Serial.println("help        - 显示此帮助");
       Serial.println("================\n");
     }
