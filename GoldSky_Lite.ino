@@ -165,27 +165,107 @@ void checkWiFi() {
   }
 }
 
-// =================== NFC自动恢复 ===================
+// =================== NFC健康检查（增强版）===================
+bool verifyNFCHealth() {
+  // 第1步：检查版本寄存器
+  byte version = mfrc522.PCD_ReadRegister(mfrc522.VersionReg);
+  if (version == 0x00 || version == 0xFF) {
+    logWarn("⚠️ NFC版本号异常: 0x" + String(version, HEX));
+    return false;
+  }
+
+  // 第2步：检查天线状态
+  byte antennaStatus = mfrc522.PCD_ReadRegister(mfrc522.TxControlReg);
+  if ((antennaStatus & 0x03) != 0x03) {
+    logWarn("⚠️ NFC天线未开启，尝试重新开启");
+    mfrc522.PCD_AntennaOn();
+    delay(50);
+    antennaStatus = mfrc522.PCD_ReadRegister(mfrc522.TxControlReg);
+    if ((antennaStatus & 0x03) != 0x03) {
+      logWarn("❌ NFC天线开启失败");
+      return false;
+    }
+  }
+
+  // 第3步：验证寄存器读写功能
+  byte testValue = 0x20;  // Idle command
+  mfrc522.PCD_WriteRegister(mfrc522.CommandReg, testValue);
+  delay(10);
+  byte readBack = mfrc522.PCD_ReadRegister(mfrc522.CommandReg);
+  if (readBack != testValue) {
+    logWarn("❌ NFC寄存器读写验证失败 (写入: 0x" + String(testValue, HEX) +
+            ", 读回: 0x" + String(readBack, HEX) + ")");
+    return false;
+  }
+
+  // 第4步：检查错误寄存器
+  byte errorReg = mfrc522.PCD_ReadRegister(mfrc522.ErrorReg);
+  if (errorReg != 0x00) {
+    logWarn("⚠️ NFC错误寄存器异常: 0x" + String(errorReg, HEX));
+    // 清除错误标志
+    mfrc522.PCD_WriteRegister(mfrc522.ErrorReg, 0x00);
+  }
+
+  logDebug("✅ NFC健康检查通过 (版本: 0x" + String(version, HEX) +
+           ", 天线: ON, 寄存器: OK)");
+  return true;
+}
+
+// =================== NFC完全重置 ===================
+bool performNFCHardReset() {
+  logInfo("🔄 执行NFC硬件完全重置...");
+
+  // 硬件复位
+  digitalWrite(RC522_RST, LOW);
+  delay(100);  // 延长复位时间
+  digitalWrite(RC522_RST, HIGH);
+  delay(100);
+
+  // 重新初始化
+  mfrc522.PCD_Init(RC522_CS, RC522_RST);
+  delay(200);
+
+  // 配置最佳参数
+  mfrc522.PCD_AntennaOn();
+  mfrc522.PCD_SetAntennaGain(mfrc522.RxGain_max);
+
+  // 清除所有错误标志
+  mfrc522.PCD_WriteRegister(mfrc522.ErrorReg, 0x00);
+
+  // 验证健康状态
+  return verifyNFCHealth();
+}
+
+// =================== NFC自动恢复（增强版）===================
 void tryRecoverNFC() {
-  if (sysStatus.nfcWorking) return;  // NFC正常，无需恢复
+  if (sysStatus.nfcWorking) {
+    // 即使标志为true，也定期验证健康度
+    static unsigned long lastHealthCheck = 0;
+    if (millis() - lastHealthCheck >= 300000) {  // 每5分钟检查一次
+      lastHealthCheck = millis();
+
+      if (!verifyNFCHealth()) {
+        logWarn("⚠️ NFC健康检查失败，尝试恢复...");
+        sysStatus.nfcWorking = false;  // 标记为失效，触发恢复流程
+        healthMetrics.nfcInitialized = false;
+      }
+    }
+    return;
+  }
 
   if (millis() - lastNFCRetry < NFC_RETRY_INTERVAL_MS) return;  // 未到重试时间
 
   lastNFCRetry = millis();
-  logInfo("🔄 尝试恢复NFC模块...");
 
-  mfrc522.PCD_Init(RC522_CS, RC522_RST);
-  delay(200);
-
-  byte version = mfrc522.PCD_ReadRegister(mfrc522.VersionReg);
-  if (version != 0x00 && version != 0xFF) {
+  // 使用增强版硬件重置
+  if (performNFCHardReset()) {
     sysStatus.nfcWorking = true;
-    mfrc522.PCD_AntennaOn();
-    mfrc522.PCD_SetAntennaGain(mfrc522.RxGain_max);
-    logInfo("✅ NFC恢复成功: 0x" + String(version, HEX));
+    healthMetrics.nfcInitialized = true;
+    logInfo("✅ NFC恢复成功");
     beepSuccess();
   } else {
     logWarn("⚠️ NFC恢复失败，将在" + String(NFC_RETRY_INTERVAL_MS/1000) + "秒后重试");
+    healthMetrics.nfcInitialized = false;
   }
 }
 
@@ -1245,6 +1325,25 @@ void loop() {
   // =================== 健康度监测（定期上传）===================
   healthMonitor.checkAndUpload();
 
+  // =================== 基于成功率的NFC自动恢复 ===================
+  static unsigned long lastNFCSuccessRateCheck = 0;
+  if (millis() - lastNFCSuccessRateCheck >= 600000) {  // 每10分钟检查一次
+    lastNFCSuccessRateCheck = millis();
+
+    float successRate = healthMetrics.getNFCSuccessRate();
+    int totalReads = healthMetrics.nfcReadSuccessCount + healthMetrics.nfcReadFailCount;
+
+    // 如果有足够的样本数据，且成功率低于50%
+    if (totalReads >= 10 && successRate < 50.0 && sysStatus.nfcWorking) {
+      logWarn("⚠️ NFC成功率过低 (" + String(successRate, 1) + "%)，触发自动恢复");
+      sysStatus.nfcWorking = false;  // 触发恢复流程
+
+      // 重置统计数据
+      healthMetrics.nfcReadSuccessCount = 0;
+      healthMetrics.nfcReadFailCount = 0;
+    }
+  }
+
   switch (currentState) {
     case STATE_WELCOME:
       handleWelcomeState();
@@ -1367,6 +1466,38 @@ void handleSerialCommands() {
         Serial.println("❌ 上传失败");
       }
     }
+    else if (cmd == "nfc test") {
+      Serial.println("🔍 NFC健康诊断测试...");
+
+      byte version = mfrc522.PCD_ReadRegister(mfrc522.VersionReg);
+      Serial.println("   版本寄存器: 0x" + String(version, HEX));
+
+      byte antenna = mfrc522.PCD_ReadRegister(mfrc522.TxControlReg);
+      Serial.println("   天线状态: 0x" + String(antenna, HEX) + " (" +
+                     String((antenna & 0x03) == 0x03 ? "ON" : "OFF") + ")");
+
+      byte errorReg = mfrc522.PCD_ReadRegister(mfrc522.ErrorReg);
+      Serial.println("   错误寄存器: 0x" + String(errorReg, HEX));
+
+      byte gainReg = mfrc522.PCD_ReadRegister(mfrc522.RFCfgReg);
+      Serial.println("   增益配置: 0x" + String(gainReg, HEX));
+
+      if (verifyNFCHealth()) {
+        Serial.println("✅ NFC模块健康");
+      } else {
+        Serial.println("❌ NFC模块异常");
+      }
+    }
+    else if (cmd == "nfc reset") {
+      Serial.println("🔄 手动重置NFC模块...");
+      if (performNFCHardReset()) {
+        sysStatus.nfcWorking = true;
+        healthMetrics.nfcInitialized = true;
+        Serial.println("✅ NFC重置成功");
+      } else {
+        Serial.println("❌ NFC重置失败");
+      }
+    }
     else if (cmd == "help") {
       Serial.println("\n=== 可用命令 ===");
       Serial.println("log error   - 设置日志级别为ERROR");
@@ -1378,6 +1509,8 @@ void handleSerialCommands() {
       Serial.println("cache       - 查看离线缓存");
       Serial.println("health      - 查看系统健康度状态");
       Serial.println("health upload - 立即上传健康度日志");
+      Serial.println("nfc test    - NFC模块健康诊断");
+      Serial.println("nfc reset   - 手动重置NFC模块");
       Serial.println("help        - 显示此帮助");
       Serial.println("================\n");
     }
