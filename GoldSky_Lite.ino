@@ -650,6 +650,16 @@ void handleWelcomeState() {
     lastWelcomeUpdate = millis();
   }
 
+  // ✅ 新增：WELCOME状态下持续检测NFC（用于健康度监测）
+  // 说明：即使在待机状态也检测NFC，确保健康度数据准确
+  //      检测到卡片不会触发业务逻辑，仅用于验证NFC模块工作状态
+  static unsigned long lastNFCCheck = 0;
+  if (millis() - lastNFCCheck >= 2000) {  // 每2秒检测一次
+    String uid = readCardUID();  // 调用检测，会更新成功/失败计数
+    // 不做任何处理，仅用于测试NFC是否响应
+    lastNFCCheck = millis();
+  }
+
   if (readButtonImproved(BTN_OK)) {
     currentState = STATE_SELECT_PACKAGE;
     selectedPackage = 0;
